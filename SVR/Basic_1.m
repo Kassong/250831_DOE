@@ -1,36 +1,36 @@
 clear; clc; close all;
 rng('default'); set(0, 'DefaultFigureWindowStyle', 'docked');
 
-fprintf('\n=== Basic_1.m SVR 모델 학습 및 평가 시작 (하이퍼파라미터 최적화 & K-fold CV 포함) ===\n');
-fprintf('데이터 로딩 중...\n');
+fprintf('\n=== Basic_1.m SVR Model Training and Evaluation Start (Hyperparameter Optimization & K-fold CV Included) ===\n');
+fprintf('Loading data...\n');
 T = readtable('dataset.csv');
 X = T{:,1:4}; Y = T{:,5:8};
 input_names = T.Properties.VariableNames(1:4);
 output_names = T.Properties.VariableNames(5:8);
 num_outputs = size(Y,2); num_samples = size(X,1);
-fprintf('데이터 로딩 완료: %d개 샘플, %d개 입력변수, %d개 출력변수\n', num_samples, length(input_names), num_outputs);
+fprintf('Data loading completed: %d samples, %d input variables, %d output variables\n', num_samples, length(input_names), num_outputs);
 
-%% 1. Split (80% 학습, 20% 테스트)
-fprintf('\n데이터 분할 중...\n');
+%% 1. Split (80% training, 20% testing)
+fprintf('\nSplitting data...\n');
 idx = randperm(num_samples);
 N_train = round(0.8*num_samples);
 train_idx = idx(1:N_train); test_idx = idx(N_train+1:end);
 
 X_train = X(train_idx,:); X_test = X(test_idx,:);
 Y_train = Y(train_idx,:); Y_test = Y(test_idx,:);
-fprintf('데이터 분할 완료: 학습 %d개, 테스트 %d개\n', N_train, length(test_idx));
+fprintf('Data splitting completed: %d training, %d testing\n', N_train, length(test_idx));
 
-% 정규화 (학습셋 기준)
-fprintf('데이터 정규화 중...\n');
+% Normalization (based on training set)
+fprintf('Normalizing data...\n');
 [X_train_norm, X_mean, X_std] = zscore(X_train);
 X_test_norm = (X_test - X_mean) ./ X_std;
 [Y_train_norm, Y_mean, Y_std] = zscore(Y_train);
 Y_test_norm = (Y_test - Y_mean) ./ Y_std;
-fprintf('데이터 정규화 완료\n');
+fprintf('Data normalization completed\n');
 
-%% 하이퍼파라미터 최적화 함수 정의
+%% Hyperparameter optimization function definition
 function [best_params, best_score] = optimizeSVR(X, Y, kernel_type, cv_folds)
-    % SVR 하이퍼파라미터 그리드 서치
+    % SVR hyperparameter grid search
     if strcmp(kernel_type, 'rbf')
         C_range = [0.1, 1, 10, 100];
         sigma_range = [0.1, 1, 10, 100];
@@ -57,7 +57,7 @@ function [best_params, best_score] = optimizeSVR(X, Y, kernel_type, cv_folds)
     best_score = -Inf;
     best_params = param_grid(1,:);
     
-    % K-fold 교차검증
+    % K-fold cross-validation
     cv_partition = cvpartition(size(X,1), 'KFold', cv_folds);
     
     for i = 1:size(param_grid, 1)
@@ -101,13 +101,13 @@ function [best_params, best_score] = optimizeSVR(X, Y, kernel_type, cv_folds)
     end
 end
 
-%% 2. 커널별 모델 학습 및 예측 (하이퍼파라미터 최적화 포함)
-fprintf('\n=== SVR 모델 학습 시작 (하이퍼파라미터 최적화) ===\n');
+%% 2. Kernel-based model training and prediction (including hyperparameter optimization)
+fprintf('\n=== SVR Model Training Start (Hyperparameter Optimization) ===\n');
 kernel_names = {'RBF','Linear','Ensemble'};
 Y_pred_train_all = zeros(N_train, num_outputs, 3);
 Y_pred_test_all  = zeros(num_samples-N_train, num_outputs, 3);
 
-% 성능 지표 저장 변수
+% Performance metrics storage variables
 R2_train = zeros(num_outputs, 3);
 R2_test = zeros(num_outputs, 3);
 RMSE_train = zeros(num_outputs, 3);
@@ -116,18 +116,18 @@ MAE_train = zeros(num_outputs, 3);
 MAE_test = zeros(num_outputs, 3);
 CV_scores = zeros(num_outputs, 3);
 
-% K-fold 설정
+% K-fold settings
 k_folds = 5;
 
 for j = 1:num_outputs
-    fprintf('\n출력변수 %s (%d/%d) 모델 학습 중...\n', output_names{j}, j, num_outputs);
+    fprintf('\nTraining model for output variable %s (%d/%d)...\n', output_names{j}, j, num_outputs);
     Yt_train = Y_train_norm(:,j);
     Yt_test = Y_test_norm(:,j);
 
-    % RBF 커널 (하이퍼파라미터 최적화)
-    fprintf('  - RBF 커널 하이퍼파라미터 최적화 중...\n');
+    % RBF kernel (hyperparameter optimization)
+    fprintf('  - Optimizing RBF kernel hyperparameters...\n');
     [rbf_params, rbf_cv_score] = optimizeSVR(X_train_norm, Yt_train, 'rbf', k_folds);
-    fprintf('    최적 RBF 파라미터: C=%.2f, Sigma=%.2f (CV R²=%.4f)\n', rbf_params(1), rbf_params(2), rbf_cv_score);
+    fprintf('    Optimal RBF parameters: C=%.2f, Sigma=%.2f (CV R²=%.4f)\n', rbf_params(1), rbf_params(2), rbf_cv_score);
     
     mdl_rbf = fitrsvm(X_train_norm, Yt_train, 'KernelFunction', 'rbf', ...
         'BoxConstraint', rbf_params(1), 'KernelScale', rbf_params(2), 'Standardize', false);
@@ -135,10 +135,10 @@ for j = 1:num_outputs
     Y_pred_test_all(:,j,1) = predict(mdl_rbf, X_test_norm);
     CV_scores(j,1) = rbf_cv_score;
 
-    % Linear 커널 (하이퍼파라미터 최적화)
-    fprintf('  - Linear 커널 하이퍼파라미터 최적화 중...\n');
+    % Linear kernel (hyperparameter optimization)
+    fprintf('  - Optimizing Linear kernel hyperparameters...\n');
     [lin_params, lin_cv_score] = optimizeSVR(X_train_norm, Yt_train, 'linear', k_folds);
-    fprintf('    최적 Linear 파라미터: C=%.2f (CV R²=%.4f)\n', lin_params(1), lin_cv_score);
+    fprintf('    Optimal Linear parameters: C=%.2f (CV R²=%.4f)\n', lin_params(1), lin_cv_score);
     
     mdl_lin = fitrsvm(X_train_norm, Yt_train, 'KernelFunction', 'linear', ...
         'BoxConstraint', lin_params(1), 'Standardize', false);
@@ -146,12 +146,12 @@ for j = 1:num_outputs
     Y_pred_test_all(:,j,2) = predict(mdl_lin, X_test_norm);
     CV_scores(j,2) = lin_cv_score;
 
-    % Ensemble (Linear + Polynomial, 각각 최적화)
-    fprintf('  - Ensemble 모델 (Linear+Poly2) 하이퍼파라미터 최적화 중...\n');
+    % Ensemble (Linear + Polynomial, each optimized separately)
+    fprintf('  - Optimizing Ensemble model (Linear+Poly2) hyperparameters...\n');
     [poly_params, poly_cv_score] = optimizeSVR(X_train_norm, Yt_train, 'polynomial', k_folds);
-    fprintf('    최적 Polynomial 파라미터: C=%.2f, Order=%d (CV R²=%.4f)\n', poly_params(1), poly_params(2), poly_cv_score);
+    fprintf('    Optimal Polynomial parameters: C=%.2f, Order=%d (CV R²=%.4f)\n', poly_params(1), poly_params(2), poly_cv_score);
     
-    % 최적화된 파라미터로 앙상블 모델 학습
+    % Train ensemble model with optimized parameters
     mdl_lin_ens = fitrsvm(X_train_norm, Yt_train, 'KernelFunction', 'linear', ...
         'BoxConstraint', lin_params(1), 'Standardize', false);
     mdl_poly_ens = fitrsvm(X_train_norm, Yt_train, 'KernelFunction', 'polynomial', ...
@@ -164,32 +164,32 @@ for j = 1:num_outputs
     
     Y_pred_train_all(:,j,3) = (Y_pred_train_lin + Y_pred_train_poly)/2;
     Y_pred_test_all(:,j,3) = (Y_pred_test_lin + Y_pred_test_poly)/2;
-    CV_scores(j,3) = (lin_cv_score + poly_cv_score)/2; % 앙상블 CV 점수
+    CV_scores(j,3) = (lin_cv_score + poly_cv_score)/2; % Ensemble CV score
     
-    % 성능 지표 계산 (모든 커널에 대해)
+    % Calculate performance metrics (for all kernels)
     for k = 1:3
-        % R² 계산
+        % R² calculation
         R2_train(j,k) = 1 - sum((Yt_train - Y_pred_train_all(:,j,k)).^2) / sum((Yt_train - mean(Yt_train)).^2);
         R2_test(j,k) = 1 - sum((Yt_test - Y_pred_test_all(:,j,k)).^2) / sum((Yt_test - mean(Yt_test)).^2);
         
-        % RMSE 계산
+        % RMSE calculation
         RMSE_train(j,k) = sqrt(mean((Yt_train - Y_pred_train_all(:,j,k)).^2));
         RMSE_test(j,k) = sqrt(mean((Yt_test - Y_pred_test_all(:,j,k)).^2));
         
-        % MAE 계산
+        % MAE calculation
         MAE_train(j,k) = mean(abs(Yt_train - Y_pred_train_all(:,j,k)));
         MAE_test(j,k) = mean(abs(Yt_test - Y_pred_test_all(:,j,k)));
     end
     
-    fprintf('  %s 완료:\n', output_names{j});
+    fprintf('  %s completed:\n', output_names{j});
     fprintf('    RBF: R²=%.3f, RMSE=%.3f, MAE=%.3f\n', R2_test(j,1), RMSE_test(j,1), MAE_test(j,1));
     fprintf('    Linear: R²=%.3f, RMSE=%.3f, MAE=%.3f\n', R2_test(j,2), RMSE_test(j,2), MAE_test(j,2));
     fprintf('    Ensemble: R²=%.3f, RMSE=%.3f, MAE=%.3f\n', R2_test(j,3), RMSE_test(j,3), MAE_test(j,3));
 end
-fprintf('\n모든 모델 학습 완료!\n');
+fprintf('\nAll model training completed!\n');
 
-%% 3. 역정규화
-fprintf('\n예측값 역정규화 중...\n');
+%% 3. Denormalization
+fprintf('\nDenormalizing predictions...\n');
 Y_pred_train_denorm = zeros(size(Y_pred_train_all));
 Y_pred_test_denorm = zeros(size(Y_pred_test_all));
 
@@ -199,10 +199,10 @@ for k = 1:3
         Y_pred_test_denorm(:,j,k)  = Y_pred_test_all(:,j,k)  * Y_std(j) + Y_mean(j);
     end
 end
-fprintf('역정규화 완료\n');
+fprintf('Denormalization completed\n');
 
-%% 4. 각 출력별 테스트 성능 최적 커널 선정 및 성능 지표 테이블
-fprintf('\n=== 최적 커널 선정 ===\n');
+%% 4. Select optimal kernel based on test performance for each output and performance metrics table
+fprintf('\n=== Optimal Kernel Selection ===\n');
 [~,best_idx] = max(R2_test,[],2);
 Yfit_train_best = zeros(N_train, num_outputs);
 Yfit_test_best  = zeros(num_samples-N_train, num_outputs);
@@ -212,13 +212,13 @@ for j = 1:num_outputs
     Yfit_train_best(:,j) = Y_pred_train_denorm(:,j,best_idx(j));
     Yfit_test_best(:,j)  = Y_pred_test_denorm(:,j,best_idx(j));
     kernel_best{j} = kernel_names{best_idx(j)};
-    fprintf('%s: %s 커널 선택 (R²=%.3f, RMSE=%.3f, MAE=%.3f, CV=%.3f)\n', ...
+    fprintf('%s: %s kernel selected (R²=%.3f, RMSE=%.3f, MAE=%.3f, CV=%.3f)\n', ...
         output_names{j}, kernel_best{j}, R2_test(j,best_idx(j)), ...
         RMSE_test(j,best_idx(j)), MAE_test(j,best_idx(j)), CV_scores(j,best_idx(j)));
 end
 
-% 종합 성능 지표 테이블 생성
-fprintf('\n=== 종합 성능 지표 테이블 ===\n');
+% Generate comprehensive performance metrics table
+fprintf('\n=== Comprehensive Performance Metrics Table ===\n');
 fprintf('%-10s %-10s %-8s %-8s %-8s %-8s %-8s %-8s %-8s\n', ...
     'Output', 'Kernel', 'CV_R2', 'R2_train', 'R2_test', 'RMSE_train', 'RMSE_test', 'MAE_train', 'MAE_test');
 fprintf('==========================================================================================\n');
@@ -231,22 +231,22 @@ for j = 1:num_outputs
         MAE_train(j,best_k), MAE_test(j,best_k));
 end
 
-%% 5. K-fold CV 결과 시각화
-fprintf('\n시각화 생성 중...\n');
+%% 5. K-fold CV results visualization
+fprintf('\nGenerating visualizations...\n');
 figure('Name','K-fold Cross-Validation Results','WindowStyle','docked');
 for j = 1:num_outputs
     subplot(1,num_outputs,j);
     bar(CV_scores(j,:)); ylim([0 1]); grid on;
     set(gca,'XTickLabel',kernel_names); ylabel('CV R²');
     title(['Output ',output_names{j}]);
-    % 최고 성능 표시
+    % Mark best performance
     [max_val, max_idx] = max(CV_scores(j,:));
     text(max_idx, max_val+0.02, sprintf('%.3f', max_val), ...
         'HorizontalAlignment', 'center', 'FontWeight', 'bold', 'Color', 'red');
 end
-sgtitle('SVR Kernel별 K-fold Cross-Validation R²','FontSize',14,'FontWeight','bold');
+sgtitle('SVR K-fold Cross-Validation R² by Kernel','FontSize',14,'FontWeight','bold');
 
-%% 6. 성능 지표 비교 (RMSE, MAE, R²)
+%% 6. Performance metrics comparison (RMSE, MAE, R²)
 figure('Name','Performance Metrics Comparison','WindowStyle','docked');
 
 % 6-1. R² 비교
@@ -270,7 +270,7 @@ set(gca,'XTickLabel',output_names); ylabel('Test MAE');
 title('Test MAE Comparison'); legend(kernel_names, 'Location', 'best');
 xtickangle(45);
 
-% 6-4. CV vs Test R² 비교
+% 6-4. CV vs Test R² comparison
 subplot(2,2,4);
 hold on;
 for k = 1:3
@@ -283,36 +283,36 @@ grid on; axis equal; xlim([0 1]); ylim([0 1]);
 
 sgtitle('SVR Performance Metrics Comparison','FontSize',14,'FontWeight','bold');
 
-%% 7. 예측값 vs 실제값 CORRELATION PLOT (모든 출력변수, 모든 커널) - 훈련셋 + 테스트셋
-% 커널별 색상 설정
+%% 7. Predicted vs Actual CORRELATION PLOT (all outputs, all kernels) - training + test sets
+% Color settings by kernel
 kernel_colors = {'r', 'g', 'b'}; % RBF=red, Linear=green, Ensemble=blue
 kernel_markers = {'o', 's', '^'}; % RBF=circle, Linear=square, Ensemble=triangle
 
-figure('Name','Correlation Plots: 모든 커널 성능 (Y1-Y4, 훈련+테스트)','WindowStyle','docked');
+figure('Name','Correlation Plots: All Kernel Performance (Y1-Y4, Training+Test)','WindowStyle','docked');
 
 for j = 1:num_outputs
-    % 각 출력변수별로 하나의 subplot
+    % One subplot per output variable
     subplot(2,2,j);
     
-    % 모든 커널에 대해 훈련셋 결과 플롯 (투명도 적용)
+    % Plot training set results for all kernels (with transparency)
     hold on;
     for k = 1:3
-        % 훈련셋 - 작고 투명하게
+        % Training set - small and transparent
         scatter(Y_pred_train_denorm(:,j,k), Y_train(:,j), 60, ...
             kernel_colors{k}, kernel_markers{k}, 'MarkerFaceAlpha', 0.4, ...
             'MarkerEdgeAlpha', 0.6, ...
             'DisplayName', sprintf('%s Train (R²=%.3f)', kernel_names{k}, R2_train(j,k)));
     end
     
-    % 모든 커널에 대해 테스트셋 결과 플롯 (진하게)
+    % Plot test set results for all kernels (bold)
     for k = 1:3
-        % 테스트셋 - 크고 진하게
+        % Test set - large and bold
         scatter(Y_pred_test_denorm(:,j,k), Y_test(:,j), 120, ...
             kernel_colors{k}, 'filled', kernel_markers{k}, ...
             'DisplayName', sprintf('%s Test (R²=%.3f)', kernel_names{k}, R2_test(j,k)));
     end
     
-    % 1:1 기준선
+    % 1:1 reference line
     y_all = [Y_train(:,j); Y_test(:,j)];
     x_all = [Y_pred_train_denorm(:,j,:); Y_pred_test_denorm(:,j,:)];
     ymin = min(y_all); ymax = max(y_all);
@@ -321,25 +321,25 @@ for j = 1:num_outputs
     plot([lim_min lim_max], [lim_min lim_max], 'k--', 'LineWidth', 1.5, 'DisplayName', '1:1 Line');
     
     grid on; axis equal; box on;
-    xlabel('예측값'); ylabel('실제값');
-    title(sprintf('%s\n훈련+테스트 모든 커널 성능', output_names{j}));
+    xlabel('Predicted'); ylabel('Actual');
+    title(sprintf('%s\nTraining+Test All Kernel Performance', output_names{j}));
     legend('Location', 'best', 'FontSize', 6);
     
-    % 축 범위 설정
+    % Set axis range
     xlim([lim_min*0.95 lim_max*1.05]);
     ylim([lim_min*0.95 lim_max*1.05]);
 end
 
-sgtitle('SVR 모든 커널 성능 비교 (Y1-Y4 훈련+테스트셋 결과)','FontSize',14,'FontWeight','bold');
+sgtitle('SVR All Kernel Performance Comparison (Y1-Y4 Training+Test Results)','FontSize',14,'FontWeight','bold');
 
-%% 7-1. 훈련셋 전용 CORRELATION PLOT
-figure('Name','Correlation Plots: 훈련셋 전용 (Y1-Y4, 모든 커널)','WindowStyle','docked');
+%% 7-1. Training set only CORRELATION PLOT
+figure('Name','Correlation Plots: Training Set Only (Y1-Y4, All Kernels)','WindowStyle','docked');
 
 for j = 1:num_outputs
-    % 각 출력변수별로 하나의 subplot
+    % One subplot per output variable
     subplot(2,2,j);
     
-    % 모든 커널에 대해 훈련셋 결과만 플롯
+    % Plot only training set results for all kernels
     hold on;
     for k = 1:3
         scatter(Y_pred_train_denorm(:,j,k), Y_train(:,j), 100, ...
@@ -347,7 +347,7 @@ for j = 1:num_outputs
             'DisplayName', sprintf('%s (R²=%.3f)', kernel_names{k}, R2_train(j,k)));
     end
     
-    % 1:1 기준선
+    % 1:1 reference line
     ymin = min(Y_train(:,j)); ymax = max(Y_train(:,j));
     xmin = min(Y_pred_train_denorm(:,j,:),[], 'all'); 
     xmax = max(Y_pred_train_denorm(:,j,:),[], 'all');
@@ -355,25 +355,25 @@ for j = 1:num_outputs
     plot([lim_min lim_max], [lim_min lim_max], 'k--', 'LineWidth', 1.5, 'DisplayName', '1:1 Line');
     
     grid on; axis equal; box on;
-    xlabel('예측값'); ylabel('실제값');
-    title(sprintf('%s\n훈련셋 모든 커널 성능', output_names{j}));
+    xlabel('Predicted'); ylabel('Actual');
+    title(sprintf('%s\nTraining Set All Kernel Performance', output_names{j}));
     legend('Location', 'best', 'FontSize', 8);
     
-    % 축 범위 설정
+    % Set axis range
     xlim([lim_min*0.95 lim_max*1.05]);
     ylim([lim_min*0.95 lim_max*1.05]);
 end
 
-sgtitle('SVR 모든 커널 성능 비교 (Y1-Y4 훈련셋 결과)','FontSize',14,'FontWeight','bold');
+sgtitle('SVR All Kernel Performance Comparison (Y1-Y4 Training Set Results)','FontSize',14,'FontWeight','bold');
 
-%% 7-2. 테스트셋 전용 CORRELATION PLOT
-figure('Name','Correlation Plots: 테스트셋 전용 (Y1-Y4, 모든 커널)','WindowStyle','docked');
+%% 7-2. Test set only CORRELATION PLOT
+figure('Name','Correlation Plots: Test Set Only (Y1-Y4, All Kernels)','WindowStyle','docked');
 
 for j = 1:num_outputs
-    % 각 출력변수별로 하나의 subplot
+    % One subplot per output variable
     subplot(2,2,j);
     
-    % 모든 커널에 대해 테스트셋 결과만 플롯
+    % Plot only test set results for all kernels
     hold on;
     for k = 1:3
         scatter(Y_pred_test_denorm(:,j,k), Y_test(:,j), 100, ...
@@ -381,7 +381,7 @@ for j = 1:num_outputs
             'DisplayName', sprintf('%s (R²=%.3f)', kernel_names{k}, R2_test(j,k)));
     end
     
-    % 1:1 기준선
+    % 1:1 reference line
     ymin = min(Y_test(:,j)); ymax = max(Y_test(:,j));
     xmin = min(Y_pred_test_denorm(:,j,:),[], 'all'); 
     xmax = max(Y_pred_test_denorm(:,j,:),[], 'all');
@@ -389,27 +389,27 @@ for j = 1:num_outputs
     plot([lim_min lim_max], [lim_min lim_max], 'k--', 'LineWidth', 1.5, 'DisplayName', '1:1 Line');
     
     grid on; axis equal; box on;
-    xlabel('예측값'); ylabel('실제값');
-    title(sprintf('%s\n테스트셋 모든 커널 성능', output_names{j}));
+    xlabel('Predicted'); ylabel('Actual');
+    title(sprintf('%s\nTest Set All Kernel Performance', output_names{j}));
     legend('Location', 'best', 'FontSize', 8);
     
-    % 축 범위 설정
+    % Set axis range
     xlim([lim_min*0.95 lim_max*1.05]);
     ylim([lim_min*0.95 lim_max*1.05]);
 end
 
-sgtitle('SVR 모든 커널 성능 비교 (Y1-Y4 테스트셋 결과)','FontSize',14,'FontWeight','bold');
+sgtitle('SVR All Kernel Performance Comparison (Y1-Y4 Test Set Results)','FontSize',14,'FontWeight','bold');
 
-%% 8. 상세 성능 분석 - 출력변수별 모든 커널 성능 막대그래프
-figure('Name','상세 성능 분석: 출력변수별 모든 커널','WindowStyle','docked');
+%% 8. Detailed performance analysis - Bar chart of all kernel performance by output variable
+figure('Name','Detailed Performance Analysis: All Kernels by Output Variable','WindowStyle','docked');
 
-% R² 성능 비교
+% R² performance comparison
 subplot(2,2,1);
 bar(R2_test'); ylim([0 1]); grid on;
 set(gca,'XTickLabel',output_names); ylabel('Test R²');
-title('Test R² 비교 (모든 커널)'); legend(kernel_names, 'Location', 'best');
+title('Test R² Comparison (All Kernels)'); legend(kernel_names, 'Location', 'best');
 xtickangle(45);
-% 각 막대 위에 값 표시
+% Display values on top of each bar
 for j = 1:num_outputs
     for k = 1:3
         text(j + (k-2)*0.27, R2_test(j,k) + 0.02, sprintf('%.3f', R2_test(j,k)), ...
@@ -417,13 +417,13 @@ for j = 1:num_outputs
     end
 end
 
-% RMSE 성능 비교
+% RMSE performance comparison
 subplot(2,2,2);
 bar(RMSE_test'); grid on;
 set(gca,'XTickLabel',output_names); ylabel('Test RMSE');
-title('Test RMSE 비교 (모든 커널)'); legend(kernel_names, 'Location', 'best');
+title('Test RMSE Comparison (All Kernels)'); legend(kernel_names, 'Location', 'best');
 xtickangle(45);
-% 각 막대 위에 값 표시
+% Display values on top of each bar
 for j = 1:num_outputs
     for k = 1:3
         text(j + (k-2)*0.27, RMSE_test(j,k) + max(RMSE_test(:,k))*0.02, sprintf('%.3f', RMSE_test(j,k)), ...
@@ -431,13 +431,13 @@ for j = 1:num_outputs
     end
 end
 
-% MAE 성능 비교
+% MAE performance comparison
 subplot(2,2,3);
 bar(MAE_test'); grid on;
 set(gca,'XTickLabel',output_names); ylabel('Test MAE');
-title('Test MAE 비교 (모든 커널)'); legend(kernel_names, 'Location', 'best');
+title('Test MAE Comparison (All Kernels)'); legend(kernel_names, 'Location', 'best');
 xtickangle(45);
-% 각 막대 위에 값 표시
+% Display values on top of each bar
 for j = 1:num_outputs
     for k = 1:3
         text(j + (k-2)*0.27, MAE_test(j,k) + max(MAE_test(:,k))*0.02, sprintf('%.3f', MAE_test(j,k)), ...
@@ -445,13 +445,13 @@ for j = 1:num_outputs
     end
 end
 
-% CV 점수 비교
+% CV score comparison
 subplot(2,2,4);
 bar(CV_scores'); ylim([0 1]); grid on;
 set(gca,'XTickLabel',output_names); ylabel('CV R²');
-title('Cross-Validation R² 비교'); legend(kernel_names, 'Location', 'best');
+title('Cross-Validation R² Comparison'); legend(kernel_names, 'Location', 'best');
 xtickangle(45);
-% 각 막대 위에 값 표시
+% Display values on top of each bar
 for j = 1:num_outputs
     for k = 1:3
         text(j + (k-2)*0.27, CV_scores(j,k) + 0.02, sprintf('%.3f', CV_scores(j,k)), ...
@@ -459,17 +459,17 @@ for j = 1:num_outputs
     end
 end
 
-sgtitle('상세 성능 분석: Y1-Y4 모든 커널 성능 지표','FontSize',14,'FontWeight','bold');
+sgtitle('Detailed Performance Analysis: Y1-Y4 All Kernel Performance Metrics','FontSize',14,'FontWeight','bold');
 
-%% 9. 히트맵으로 성능 매트릭스 시각화
-figure('Name','성능 히트맵: 출력변수×커널','WindowStyle','docked');
+%% 9. Performance matrix visualization using heatmaps
+figure('Name','Performance Heatmap: Output Variables×Kernels','WindowStyle','docked');
 
-% R² 히트맵
+% R² heatmap
 subplot(2,2,1);
 imagesc(R2_test); colorbar; colormap(gca, 'hot');
 set(gca,'XTick',1:3,'XTickLabel',kernel_names,'YTick',1:num_outputs,'YTickLabel',output_names);
-title('Test R² 히트맵'); xlabel('커널'); ylabel('출력변수');
-% 값 표시
+title('Test R² Heatmap'); xlabel('Kernel'); ylabel('Output Variables');
+% Display values
 for j = 1:num_outputs
     for k = 1:3
         text(k, j, sprintf('%.3f', R2_test(j,k)), 'HorizontalAlignment', 'center', ...
@@ -477,12 +477,12 @@ for j = 1:num_outputs
     end
 end
 
-% RMSE 히트맵
+% RMSE heatmap
 subplot(2,2,2);
 imagesc(RMSE_test); colorbar; colormap(gca, 'cool');
 set(gca,'XTick',1:3,'XTickLabel',kernel_names,'YTick',1:num_outputs,'YTickLabel',output_names);
-title('Test RMSE 히트맵'); xlabel('커널'); ylabel('출력변수');
-% 값 표시
+title('Test RMSE Heatmap'); xlabel('Kernel'); ylabel('Output Variables');
+% Display values
 for j = 1:num_outputs
     for k = 1:3
         text(k, j, sprintf('%.3f', RMSE_test(j,k)), 'HorizontalAlignment', 'center', ...
@@ -490,12 +490,12 @@ for j = 1:num_outputs
     end
 end
 
-% MAE 히트맵
+% MAE heatmap
 subplot(2,2,3);
 imagesc(MAE_test); colorbar; colormap(gca, 'winter');
 set(gca,'XTick',1:3,'XTickLabel',kernel_names,'YTick',1:num_outputs,'YTickLabel',output_names);
-title('Test MAE 히트맵'); xlabel('커널'); ylabel('출력변수');
-% 값 표시
+title('Test MAE Heatmap'); xlabel('Kernel'); ylabel('Output Variables');
+% Display values
 for j = 1:num_outputs
     for k = 1:3
         text(k, j, sprintf('%.3f', MAE_test(j,k)), 'HorizontalAlignment', 'center', ...
@@ -503,12 +503,12 @@ for j = 1:num_outputs
     end
 end
 
-% CV 점수 히트맵
+% CV score heatmap
 subplot(2,2,4);
 imagesc(CV_scores); colorbar; colormap(gca, 'spring');
 set(gca,'XTick',1:3,'XTickLabel',kernel_names,'YTick',1:num_outputs,'YTickLabel',output_names);
-title('CV R² 히트맵'); xlabel('커널'); ylabel('출력변수');
-% 값 표시
+title('CV R² Heatmap'); xlabel('Kernel'); ylabel('Output Variables');
+% Display values
 for j = 1:num_outputs
     for k = 1:3
         text(k, j, sprintf('%.3f', CV_scores(j,k)), 'HorizontalAlignment', 'center', ...
@@ -516,16 +516,16 @@ for j = 1:num_outputs
     end
 end
 
-sgtitle('성능 히트맵: 출력변수×커널 매트릭스','FontSize',14,'FontWeight','bold');
+sgtitle('Performance Heatmap: Output Variables×Kernel Matrix','FontSize',14,'FontWeight','bold');
 
-%% 8. 박스플롯 분포 비교 (훈련/테스트/예측, 커널별)
-figure('Name','예측 분포 Boxplot (각 커널)','WindowStyle','docked');
+%% 8. Box plot distribution comparison (training/test/prediction, by kernel)
+figure('Name','Prediction Distribution Boxplot (Each Kernel)','WindowStyle','docked');
 for j = 1:num_outputs
     subplot(2,2,j);
     data_box = [Y_train(:,j); Yfit_train_best(:,j); Y_test(:,j); Yfit_test_best(:,j)];
-    labels_box = [repmat({'훈련 실제'},N_train,1); repmat({'훈련 예측'},N_train,1); ...
-                  repmat({'테스트 실제'},num_samples-N_train,1); repmat({'테스트 예측'},num_samples-N_train,1)];
+    labels_box = [repmat({'Actual Training'},N_train,1); repmat({'Predicted Training'},N_train,1); ...
+                  repmat({'Actual Test'},num_samples-N_train,1); repmat({'Predicted Test'},num_samples-N_train,1)];
     boxplot(data_box, labels_box);
     title(['Output ',output_names{j}]); ylabel(output_names{j}); grid on;
 end
-sgtitle('SVR 분포비교(훈련/테스트/예측)','FontSize',14,'FontWeight','bold');
+sgtitle('SVR Distribution Comparison (Training/Test/Prediction)','FontSize',14,'FontWeight','bold');

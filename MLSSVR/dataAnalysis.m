@@ -1,12 +1,12 @@
 clear; clc; close all;
 set(0, 'DefaultFigureWindowStyle', 'docked');
 
-fprintf('\n=== Dataset 출력 변수 상관성 및 변동성 분석 ===\n');
+fprintf('\n=== Dataset Output Variable Correlation and Variability Analysis ===\n');
 
-%% 1. 데이터 로딩
+%% 1. Data Loading
 T = readtable('dataset.csv');
-X = T{:,1:4}; % 입력 변수
-Y = T{:,5:8}; % 출력 변수
+X = T{:,1:4}; % Input variables
+Y = T{:,5:8}; % Output variables
 
 input_names = T.Properties.VariableNames(1:4);
 output_names = {'Ra(Micro)', 'Rz(Micro)', 'Ra(Macro)', 'Rz(Macro)'};
@@ -14,20 +14,20 @@ n_samples = size(T, 1);
 n_inputs = size(X, 2);
 n_outputs = size(Y, 2);
 
-fprintf('데이터셋 정보:\n');
-fprintf('  - 샘플 수: %d개\n', n_samples);
-fprintf('  - 입력 변수: %d개 (%s)\n', n_inputs, strjoin(input_names, ', '));
-fprintf('  - 출력 변수: %d개 (%s)\n', n_outputs, strjoin(output_names, ', '));
+fprintf('Dataset information:\n');
+fprintf('  - Number of samples: %d\n', n_samples);
+fprintf('  - Input variables: %d (%s)\n', n_inputs, strjoin(input_names, ', '));
+fprintf('  - Output variables: %d (%s)\n', n_outputs, strjoin(output_names, ', '));
 
-%% 2. 기본 통계량 계산
-fprintf('\n=== 출력 변수 기본 통계량 ===\n');
+%% 2. Basic Statistics Calculation
+fprintf('\n=== Basic Statistics for Output Variables ===\n');
 output_stats = table();
 for i = 1:n_outputs
     stats_struct = struct();
     stats_struct.Variable = output_names{i};
     stats_struct.Mean = mean(Y(:,i));
     stats_struct.Std = std(Y(:,i));
-    stats_struct.CV = std(Y(:,i)) / mean(Y(:,i)) * 100; % 변동계수 (%)
+    stats_struct.CV = std(Y(:,i)) / mean(Y(:,i)) * 100; % Coefficient of variation (%)
     stats_struct.Min = min(Y(:,i));
     stats_struct.Max = max(Y(:,i));
     stats_struct.Range = max(Y(:,i)) - min(Y(:,i));
@@ -38,15 +38,15 @@ for i = 1:n_outputs
         output_stats = [output_stats; struct2table(stats_struct)];
     end
     
-    fprintf('%s: 평균=%.2f, 표준편차=%.2f, CV=%.1f%%, 범위=[%.2f, %.2f]\n', ...
+    fprintf('%s: Mean=%.2f, Std=%.2f, CV=%.1f%%, Range=[%.2f, %.2f]\n', ...
         output_names{i}, stats_struct.Mean, stats_struct.Std, stats_struct.CV, ...
         stats_struct.Min, stats_struct.Max);
 end
 
-%% 3. 출력 변수 간 상관계수 계산
-fprintf('\n=== 출력 변수 간 상관계수 ===\n');
+%% 3. Correlation Coefficient Calculation Between Output Variables
+fprintf('\n=== Correlation Coefficients Between Output Variables ===\n');
 corr_matrix = corrcoef(Y);
-fprintf('상관계수 행렬:\n');
+fprintf('Correlation matrix:\n');
 for i = 1:n_outputs
     fprintf('%s: ', output_names{i});
     for j = 1:n_outputs
@@ -59,7 +59,7 @@ for i = 1:n_outputs
     fprintf('\n');
 end
 
-%% 4. 상관계수 히트맵 시각화
+%% 4. Correlation Coefficient Heatmap Visualization
 figure('Name','Correlation Matrix Heatmap','WindowStyle','docked');
 imagesc(corr_matrix);
 

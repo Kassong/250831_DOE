@@ -2,8 +2,8 @@ clear; clc; close all;
 rng('default'); set(0, 'DefaultFigureWindowStyle', 'docked');
 addpath('MLSSVR-master');
 
-fprintf('\n=== 2개 그룹 MLSSVR 모델 학습/평가 시작 (확장된 하이퍼파라미터) ===\n');
-fprintf('학습데이터: predict_MLSSVR_2G.csv, 테스트데이터: dataset.csv\n');
+fprintf('\n=== 2-Group MLSSVR Model Training/Evaluation Started (Extended Hyperparameters) ===\n');
+fprintf('Training data: predict_MLSSVR_2G.csv, Test data: dataset.csv\n');
 T_train = readtable('predict_MLSSVR_2G.csv');      % 112개
 T_test  = readtable('dataset.csv');      % 16개
 
@@ -15,24 +15,24 @@ output_names_original = T_train.Properties.VariableNames(5:8);
 output_names = {'Micro Ra', 'Micro Rz', 'Macro Ra', 'Macro Rz'};
 num_outputs = size(Y_train,2);
 
-fprintf('데이터셋 로드 완료: 학습 %d건, 테스트 %d건\n', size(X_train,1),size(X_test,1));
+fprintf('Dataset loaded: %d training samples, %d test samples\n', size(X_train,1),size(X_test,1));
 
-% 출력 변수 그룹화
-Y_train_g1 = Y_train(:, 1:2); output_names_g1 = output_names(1:2);  % 그룹 1: Y1, Y2
-Y_train_g2 = Y_train(:, 3:4); output_names_g2 = output_names(3:4);  % 그룹 2: Y3, Y4
+% Output variable grouping
+Y_train_g1 = Y_train(:, 1:2); output_names_g1 = output_names(1:2);  % Group 1: Y1, Y2
+Y_train_g2 = Y_train(:, 3:4); output_names_g2 = output_names(3:4);  % Group 2: Y3, Y4
 Y_test_g1 = Y_test(:, 1:2);
 Y_test_g2 = Y_test(:, 3:4);
 
 fprintf('출력 변수를 2개 그룹으로 분할: 그룹1(%s,%s) / 그룹2(%s,%s)\n', ...
     output_names_g1{1}, output_names_g1{2}, output_names_g2{1}, output_names_g2{2});
 
-% 정규화(학습셋 기준)
+% Normalization (based on training set)
 [X_train_norm, X_mean, X_std] = zscore(X_train);
 X_test_norm = (X_test - X_mean) ./ X_std;
 [Y_train_norm, Y_mean, Y_std] = zscore(Y_train);
 Y_test_norm = (Y_test - Y_mean) ./ Y_std;
 
-% 그룹별 정규화
+% Group-wise normalization
 [Y_train_norm_g1, Y_mean_g1, Y_std_g1] = zscore(Y_train_g1);
 [Y_train_norm_g2, Y_mean_g2, Y_std_g2] = zscore(Y_train_g2);
 Y_test_norm_g1 = (Y_test_g1 - Y_mean_g1) ./ Y_std_g1;

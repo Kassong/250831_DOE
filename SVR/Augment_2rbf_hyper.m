@@ -1,46 +1,46 @@
 clear; clc; close all;
 rng('default'); set(0, 'DefaultFigureWindowStyle', 'docked');
 
-fprintf('\n=== Augment_2rbf_hyper.m RBF SVR 미실험 조건 예측 (하이퍼파라미터 최적화 + K-fold CV) ===\n');
-fprintf('데이터 로딩 중...\n');
+fprintf('\n=== Augment_2rbf_hyper.m RBF SVR Untested Condition Prediction (Hyperparameter Optimization + K-fold CV) ===\n');
+fprintf('Loading data...\n');
 T = readtable('dataset.csv');
 X_train = T{:,1:4}; Y_train = T{:,5:8};
 input_names = T.Properties.VariableNames(1:4);
 output_names = T.Properties.VariableNames(5:8);
 num_outputs = size(Y_train,2);
-fprintf('학습 데이터: %d개 샘플, %d개 출력변수\n', size(X_train,1), num_outputs);
+fprintf('Training data: %d samples, %d output variables\n', size(X_train,1), num_outputs);
 
 %% 1. Taguchi OA 전체조건 생성
-fprintf('\nTaguchi 직교배열 전체조건 생성 중...\n');
+fprintf('\nGenerating Taguchi orthogonal array complete conditions...\n');
 x1_values = [250, 750, 1250, 1750];
 x2_values = [20, 40, 60, 80];
 x3_values = [150, 300, 450, 600];
 x4_values = [4, 8];
 [X1, X2, X3, X4] = ndgrid(x1_values, x2_values, x3_values, x4_values);
 X_all = [X1(:), X2(:), X3(:), X4(:)];
-fprintf('전체 조건: %d개 (%d×%d×%d×%d)\n', size(X_all,1), length(x1_values), length(x2_values), length(x3_values), length(x4_values));
+fprintf('Total conditions: %d (%d×%d×%d×%d)\n', size(X_all,1), length(x1_values), length(x2_values), length(x3_values), length(x4_values));
 
-% 학습 셋 제외한 예측 대상 112개 조건 추출
+% Extract 112 prediction target conditions excluding training set
 is_train = ismember(X_all, X_train, 'rows');
 X_predict = X_all(~is_train,:);
-fprintf('학습조건 제외 후 예측대상: %d개 조건\n', size(X_predict,1));
+fprintf('Prediction targets after excluding training conditions: %d conditions\n', size(X_predict,1));
 
 %% 2. 입력 및 출력 정규화 (학습셋 기준)
-fprintf('\n데이터 정규화 중...\n');
+fprintf('\nNormalizing data...\n');
 [X_train_norm, X_mean, X_std] = zscore(X_train);
 X_predict_norm = (X_predict - X_mean) ./ X_std;
 [Y_train_norm, Y_mean, Y_std] = zscore(Y_train);
-fprintf('정규화 완료 (학습셋 기준)\n');
+fprintf('Normalization completed (based on training set)\n');
 
 %% 3. RBF SVR 하이퍼파라미터 최적화 및 K-fold 교차검증
-fprintf('\n=== RBF SVR 하이퍼파라미터 최적화 및 K-fold CV 시작 ===\n');
+fprintf('\n=== RBF SVR Hyperparameter Optimization and K-fold CV Start ===\n');
 
-% 하이퍼파라미터 검색 범위 설정
+% Hyperparameter search range settings
 c_range = logspace(-2, 2, 8); % C: 0.01 ~ 100
 gamma_range = logspace(-4, 1, 8); % gamma: 0.0001 ~ 10 (RBF용)
 epsilon_range = logspace(-3, -1, 5); % epsilon: 0.001 ~ 0.1
 
-% K-fold 설정
+% K-fold settings
 k_folds = 5; % 5-fold CV (16개 샘플이므로)
 n_samples = size(X_train_norm, 1);
 
