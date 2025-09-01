@@ -10,7 +10,7 @@ output_names = T.Properties.VariableNames(5:8);
 num_outputs = size(Y_train,2);
 fprintf('Training data: %d samples, %d output variables\n', size(X_train,1), num_outputs);
 
-%% 1. Taguchi OA 전체조건 생성
+%% 1. Generate complete conditions for Taguchi OA
 fprintf('\nGenerating Taguchi orthogonal array complete conditions...\n');
 x1_values = [250, 750, 1250, 1750];
 x2_values = [20, 40, 60, 80];
@@ -25,14 +25,14 @@ is_train = ismember(X_all, X_train, 'rows');
 X_predict = X_all(~is_train,:);
 fprintf('Prediction targets after excluding training conditions: %d conditions\n', size(X_predict,1));
 
-%% 2. 입력 및 출력 정규화 (학습셋 기준)
+%% 2. Input and output normalization (based on training set)
 fprintf('\nNormalizing data...\n');
 [X_train_norm, X_mean, X_std] = zscore(X_train);
 X_predict_norm = (X_predict - X_mean) ./ X_std;
 [Y_train_norm, Y_mean, Y_std] = zscore(Y_train);
 fprintf('Normalization completed (based on training set)\n');
 
-%% 3. Linear SVR 하이퍼파라미터 최적화 및 K-fold 교차검증
+%% 3. Linear SVR hyperparameter optimization and K-fold cross-validation
 fprintf('\n=== Linear SVR Hyperparameter Optimization and K-fold CV Start ===\n');
 
 % Hyperparameter search range settings
@@ -88,7 +88,7 @@ for j = 1:num_outputs
                 cv_predictions(test_idx) = predict(mdl, X_train_norm(test_idx,:));
             end
             
-            % R² 계산
+            % R² calculation
             SS_res = sum((Yt_train - cv_predictions).^2);
             SS_tot = sum((Yt_train - mean(Yt_train)).^2);
             r2_score = 1 - SS_res/SS_tot;
@@ -126,7 +126,7 @@ end
 
 fprintf('\nLinear SVR hyperparameter optimization completed!\n');
 
-%% 4. 최적화된 Linear SVR 모델 학습 및 예측
+%% 4. Optimized Linear SVR model training and prediction
 fprintf('\n=== Optimized Linear SVR Model Training and Prediction Start ===\n');
 Y_predict_norm = zeros(size(X_predict,1), num_outputs);
 
@@ -146,7 +146,7 @@ for j = 1:num_outputs
 end
 fprintf('Optimized Linear SVR prediction completed!\n');
 
-%% 5. 예측값 역정규화
+%% 5. Denormalize predictions
 fprintf('\nDenormalizing predictions...\n');
 Y_predict = zeros(size(Y_predict_norm));
 for j = 1:num_outputs
@@ -154,7 +154,7 @@ for j = 1:num_outputs
 end
 fprintf('Denormalization completed\n');
 
-%% 6. 교차검증 결과 및 성능 지표 시각화
+%% 6. Cross-validation results and performance metrics visualization
 fprintf('\n=== Cross-Validation Results Visualization ===\n');
 
 % 6-1. Performance metrics bar chart
@@ -251,7 +251,7 @@ for j = 1:num_outputs
 end
 sgtitle('Optimized Linear SVR-Based Prediction Heatmap','FontSize',14);
 
-%% 8. 결과 저장
+%% 8. Result storage
 fprintf('\n=== Results Saving ===\n');
 
 % Save optimized Linear predictions

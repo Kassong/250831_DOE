@@ -104,14 +104,25 @@ fprintf('Performing hyperparameter grid search...\n');
 [gamma_opt, lambda_opt, p_opt, mse_opt] = GridMLSSVR_Extended_Unified(X_train_norm, Y_train_norm, 5);
 fprintf('Optimal parameters (integrated MSE=%.6f): gamma=%.4f, lambda=%.4f, p=%.4f\n', mse_opt, gamma_opt, lambda_opt, p_opt);
 
-% Generate indices for cross-validation
-cv_indices = cvpartition(n_train, 'KFold', k_folds);
+% Generate indices for cross-validation (custom implementation to avoid toolbox dependency)
+indices = randperm(n_train);
+fold_size = floor(n_train / k_folds);
+cv_indices = zeros(n_train, 1);
+for fold = 1:k_folds
+    start_idx = (fold-1) * fold_size + 1;
+    if fold == k_folds
+        end_idx = n_train;
+    else
+        end_idx = fold * fold_size;
+    end
+    cv_indices(indices(start_idx:end_idx)) = fold;
+end
 cv_pred_all = zeros(n_train, num_outputs); % Matrix to store predictions from all folds
 
 fprintf('Performing 10-fold CV validation (single model training)...\n');
 for fold = 1:k_folds
-    train_idx = training(cv_indices, fold);
-    test_idx = test(cv_indices, fold);
+    train_idx = cv_indices ~= fold;
+    test_idx = cv_indices == fold;
     
     X_cv_train = X_train_norm(train_idx, :);
     Y_cv_train = Y_train_norm(train_idx, :); % 전체 Y 사용

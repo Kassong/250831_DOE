@@ -57,15 +57,27 @@ function [best_params, best_score] = optimizeSVR(X, Y, kernel_type, cv_folds)
     best_score = -Inf;
     best_params = param_grid(1,:);
     
-    % K-fold cross-validation
-    cv_partition = cvpartition(size(X,1), 'KFold', cv_folds);
+    % K-fold cross-validation (custom implementation to avoid toolbox dependency)
+    n = size(X, 1);
+    indices = randperm(n);
+    fold_size = floor(n / cv_folds);
+    cv_indices = zeros(n, 1);
+    for fold = 1:cv_folds
+        start_idx = (fold-1) * fold_size + 1;
+        if fold == cv_folds
+            end_idx = n;
+        else
+            end_idx = fold * fold_size;
+        end
+        cv_indices(indices(start_idx:end_idx)) = fold;
+    end
     
     for i = 1:size(param_grid, 1)
         cv_scores = zeros(cv_folds, 1);
         
         for fold = 1:cv_folds
-            train_idx = training(cv_partition, fold);
-            val_idx = test(cv_partition, fold);
+            train_idx = cv_indices ~= fold;
+            val_idx = cv_indices == fold;
             
             X_cv_train = X(train_idx, :);
             Y_cv_train = Y(train_idx, :);

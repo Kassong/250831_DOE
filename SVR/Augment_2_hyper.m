@@ -10,7 +10,7 @@ output_names = T.Properties.VariableNames(5:8);
 num_outputs = size(Y_train,2);
 fprintf('Training data: %d samples, %d output variables\n', size(X_train,1), num_outputs);
 
-%% 1. Taguchi OA 전체조건 생성
+%% 1. Generate complete conditions for Taguchi OA
 fprintf('\nGenerating Taguchi orthogonal array complete conditions...\n');
 x1_values = [250, 750, 1250, 1750];
 x2_values = [20, 40, 60, 80];
@@ -25,14 +25,14 @@ is_train = ismember(X_all, X_train, 'rows');
 X_predict = X_all(~is_train,:);
 fprintf('Prediction targets after excluding training conditions: %d conditions\n', size(X_predict,1));
 
-%% 2. 입력 및 출력 정규화 (학습셋 기준)
+%% 2. Input and output normalization (based on training set)
 fprintf('\nNormalizing data...\n');
 [X_train_norm, X_mean, X_std] = zscore(X_train);
 X_predict_norm = (X_predict - X_mean) ./ X_std;
 [Y_train_norm, Y_mean, Y_std] = zscore(Y_train);
 fprintf('Normalization completed (based on training set)\n');
 
-%% 3. K-fold 교차검증 및 하이퍼파라미터 최적화
+%% 3. K-fold cross-validation and hyperparameter optimization
 fprintf('\n=== K-fold Cross-Validation and Hyperparameter Optimization Start ===\n');
 kernel_names = {'RBF','Linear','Ensemble'};
 k_folds = 5; % 5-fold CV (16개 샘플이므로)
@@ -43,8 +43,19 @@ c_range = logspace(-2, 2, 10); % C: 0.01 ~ 100
 gamma_range = logspace(-4, 1, 10); % gamma: 0.0001 ~ 10 (RBF용)
 epsilon_range = logspace(-3, -1, 5); % epsilon: 0.001 ~ 0.1
 
-% Generate CV partitions
-cv_indices = crossvalind('Kfold', n_samples, k_folds);
+% Generate CV partitions (custom implementation to avoid Bioinformatics Toolbox dependency)
+indices = randperm(n_samples);
+fold_size = floor(n_samples / k_folds);
+cv_indices = zeros(n_samples, 1);
+for fold = 1:k_folds
+    start_idx = (fold-1) * fold_size + 1;
+    if fold == k_folds
+        end_idx = n_samples;
+    else
+        end_idx = fold * fold_size;
+    end
+    cv_indices(indices(start_idx:end_idx)) = fold;
+end
 
 % Result storage variables
 best_params = cell(num_outputs, 3); % Optimal parameters for each output-kernel
@@ -79,7 +90,7 @@ for j = 1:num_outputs
                     cv_predictions(test_idx) = predict(mdl, X_train_norm(test_idx,:));
                 end
                 
-                % R² 계산
+                % R² calculation
                 SS_res = sum((Yt_train - cv_predictions).^2);
                 SS_tot = sum((Yt_train - mean(Yt_train)).^2);
                 r2_score = 1 - SS_res/SS_tot;
@@ -120,7 +131,7 @@ for j = 1:num_outputs
                 cv_predictions(test_idx) = predict(mdl, X_train_norm(test_idx,:));
             end
             
-            % R² 계산
+            % R² calculation
             SS_res = sum((Yt_train - cv_predictions).^2);
             SS_tot = sum((Yt_train - mean(Yt_train)).^2);
             r2_score = 1 - SS_res/SS_tot;
@@ -167,7 +178,7 @@ for j = 1:num_outputs
                     cv_predictions(test_idx) = predict(mdl, X_train_norm(test_idx,:));
                 end
                 
-                % R² 계산
+                % R² calculation
                 SS_res = sum((Yt_train - cv_predictions).^2);
                 SS_tot = sum((Yt_train - mean(Yt_train)).^2);
                 r2_score = 1 - SS_res/SS_tot;
@@ -253,7 +264,7 @@ end
 
 fprintf('\nK-fold cross-validation and hyperparameter optimization completed!\n');
 
-%% 4. 최적화된 모델로 예측 수행
+%% 4. Perform predictions with optimized models
 fprintf('\n=== Optimized SVR Model Training and Prediction Start ===\n');
 Y_predict_norm = zeros(size(X_predict,1), num_outputs, 3);
 
@@ -299,7 +310,7 @@ for j = 1:num_outputs
 end
 fprintf('All model predictions completed!\n');
 
-%% 5. 예측값 역정규화
+%% 5. Denormalize predictions
 fprintf('\nDenormalizing predictions...\n');
 Y_predict = zeros(size(Y_predict_norm));
 for k = 1:3
@@ -309,7 +320,7 @@ for k = 1:3
 end
 fprintf('Denormalization completed\n');
 
-%% 6. 교차검증 결과 및 성능 지표 시각화
+%% 6. Cross-validation results and performance metrics visualization
 fprintf('\n=== Cross-Validation Results Visualization ===\n');
 
 % 6-1. R² scores
@@ -410,7 +421,7 @@ for j = 1:num_outputs
 end
 sgtitle('Optimized RBF SVR-Based Prediction Heatmap','FontSize',14);
 
-%% 8. 앙상블 예측값 CSV 저장
+%% 8. Save ensemble prediction values to CSV
 fprintf('\n=== Results Saving ===\n');
 fprintf('Saving optimized ensemble model predictions to predict_hyper.csv...\n');
 % Save only ensemble predictions from each model (3rd dimension is ensemble)

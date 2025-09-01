@@ -124,12 +124,24 @@ n_train = size(X_train_norm, 1);
 [gamma_opt_g1, lambda_opt_g1, p_opt_g1, mse_opt_g1] = GridMLSSVR_Extended_Group(X_train_norm, Y_train_norm_g1, 5, '그룹 1');
 fprintf('그룹 1 최적 파라미터 (그룹 MSE=%.6f): gamma=%.4f, lambda=%.4f, p=%.4f\n', mse_opt_g1, gamma_opt_g1, lambda_opt_g1, p_opt_g1);
 
-cv_indices = cvpartition(n_train, 'KFold', k_folds);
+% Generate indices for cross-validation (custom implementation to avoid toolbox dependency)
+indices = randperm(n_train);
+fold_size = floor(n_train / k_folds);
+cv_indices = zeros(n_train, 1);
+for fold = 1:k_folds
+    start_idx = (fold-1) * fold_size + 1;
+    if fold == k_folds
+        end_idx = n_train;
+    else
+        end_idx = fold * fold_size;
+    end
+    cv_indices(indices(start_idx:end_idx)) = fold;
+end
 cv_pred_g1 = zeros(n_train, size(Y_train_g1,2));
 
 for fold = 1:k_folds
-    train_idx = training(cv_indices, fold);
-    test_idx = test(cv_indices, fold);
+    train_idx = cv_indices ~= fold;
+    test_idx = cv_indices == fold;
     
     X_cv_train = X_train_norm(train_idx, :);
     Y_cv_train_g1 = Y_train_norm_g1(train_idx, :);
@@ -176,8 +188,8 @@ fprintf('그룹 2 최적 파라미터 (그룹 MSE=%.6f): gamma=%.4f, lambda=%.4f
 cv_pred_g2 = zeros(n_train, size(Y_train_g2,2));
 
 for fold = 1:k_folds
-    train_idx = training(cv_indices, fold);
-    test_idx = test(cv_indices, fold);
+    train_idx = cv_indices ~= fold;
+    test_idx = cv_indices == fold;
     
     X_cv_train = X_train_norm(train_idx, :);
     Y_cv_train_g2 = Y_train_norm_g2(train_idx, :);
